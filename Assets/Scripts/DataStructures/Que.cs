@@ -2,48 +2,66 @@ using System;
 
 
 /// <summary>
-/// 自作キュー（FIFO）。固定長配列をリングバッファとして使う。
+/// 自作キュー（FIFO）。循環配列を使い、満杯時は容量を2倍に拡張する。
 /// </summary>
-public class Que<T>
+public partial class Que<T>
 {
-    readonly T[] items;
-    int head; // queueの先頭要素のindex
-    int tail; // queueの末尾要素のindex + 1
-              // items[head, tail) にQueueを格納する（tail < head のときは配列末尾で折り返す）
+    T[] items;
+    int head;  // 次に取り出す要素（Front）の物理index
+    int tail;  // 次に追加する空き場所の物理index
+    int count; // 現在入っている要素数
 
-    readonly int N;
-
-    /// <param name="n">内部配列のサイズ。空と満杯を区別するため1スロット常に空けるので、実容量は n - 1。</param>
-    public Que(int n = 10000)
+    /// <param name="capacity">実際に格納できる要素数。</param>
+    public Que(int capacity = 4)
     {
-        if (n < 2) throw new ArgumentOutOfRangeException(nameof(n), "n は 2 以上にすること。");
-        N = n;
-        items = new T[N];
+        if (capacity < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(capacity), "capacity は 1 以上にしてください。");
+        }
+
+        items = new T[capacity];
         head = 0;
         tail = 0;
+        count = 0;
     }
 
-    /// <summary>実際に入れられる要素数。内部配列サイズ - 1。</summary>
-    public int Capacity { get { return N - 1; } }
+    public int Capacity { get { return items.Length; } }
 
-    /// <summary>満杯のときは何もせず捨てる（Cpp版と同じ挙動）。落としたくないなら TryEnqueue を使う。</summary>
-    public void Enqueue(T x) { TryEnqueue(x); }
-
-    public bool TryEnqueue(T x)
+    public void Enqueue(T x)
     {
-        if (IsFull()) return false;
+        if (count == Capacity)
+        {
+            Grow();
+        }
+
         items[tail] = x;
-        tail++;
-        tail %= N;
-        return true;
+        tail = (tail + 1) % Capacity;
+        count++;
     }
 
-    public void Dequeue()
+    public T Dequeue()
     {
-        if (IsEmpty()) return;
-        items[head] = default(T); // Cpp版のNUL埋めと同じ。参照型を残さずGCに回す意味もある
-        head++;
-        head %= N;
+        T value;
+        if (!TryDequeue(out value))
+        {
+            throw new InvalidOperationException("Que is empty.");
+        }
+        return value;
+    }
+
+    public bool TryDequeue(out T value)
+    {
+        if (IsEmpty())
+        {
+            value = default(T);
+            return false;
+        }
+
+        value = items[head];
+        items[head] = default(T);
+        head = (head + 1) % Capacity;
+        count--;
+        return true;
     }
 
     public T Front()
@@ -52,28 +70,78 @@ public class Que<T>
         return items[head];
     }
 
-    public int Size() { return (tail - head + N) % N; }
+    public bool TryFront(out T value)
+    {
+        if (IsEmpty())
+        {
+            value = default(T);
+            return false;
+        }
 
-    public bool IsEmpty() { return tail == head; }
+        value = Front();
+        return true;
+    }
 
-    public bool IsFull() { return ((head - 1) + N) % N == tail; }
+    public T Back()
+    {
+        if (IsEmpty()) throw new InvalidOperationException("Que is empty.");
+        int backIndex = (tail - 1 + Capacity) % Capacity;
+        return items[backIndex];
+    }
+
+    public bool TryBack(out T value)
+    {
+        if (IsEmpty())
+        {
+            value = default(T);
+            return false;
+        }
+
+        value = Back();
+        return true;
+    }
+
+    public T this[int index]
+    {
+        get
+        {
+            if (index < 0 || index >= count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
+            int physicalIndex = (head + index) % Capacity;
+            return items[physicalIndex];
+        }
+    }
+
+    public int Size() { return count; }
+
+    public bool IsEmpty() { return count == 0; }
 
     public void Clear()
     {
-        Array.Clear(items, 0, N);
+        Array.Clear(items, 0, items.Length);
         head = 0;
         tail = 0;
+        count = 0;
     }
 
-    /// <summary>先頭から末尾の順に並べ直して返す。折り返しを気にせず中身を見たいとき用。</summary>
-    public T[] ToArray()
+    void Grow()
     {
-        var result = new T[Size()];
-        for (int i = 0; i < result.Length; i++)
+        int oldCapacity = Capacity;
+        int newCapacity = checked(oldCapacity * 2);
+        T[] expandedItems = new T[newCapacity];
+
+        // 物理位置ではなく、Frontからの論理順で詰め直す。
+        for (int i = 0; i < count; i++)
         {
-            result[i] = items[(head + i) % N];
+            int oldPhysicalIndex = (head + i) % oldCapacity;
+            expandedItems[i] = items[oldPhysicalIndex];
         }
-        return result;
+
+        items = expandedItems;
+        head = 0;
+        tail = count;
     }
 }
-

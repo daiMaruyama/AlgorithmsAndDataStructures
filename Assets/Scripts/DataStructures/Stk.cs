@@ -12,22 +12,71 @@ public class Stk<T>
 
     public void Push(T x) { items.Add(x); }
 
-    public void Pop()
+    public T Pop()
     {
-        if (IsEmpty()) return;
+        T value;
+        if (!TryPop(out value))
+        {
+            throw new InvalidOperationException("Stk is empty.");
+        }
+        return value;
+    }
+
+    public bool TryPop(out T value)
+    {
+        if (IsEmpty())
+        {
+            value = default(T);
+            return false;
+        }
+
+        value = items[items.Count - 1];
         items.RemoveAt(items.Count - 1); // itemsの末尾(上)を削除する(0-based)
+        return true;
     }
 
     public T Top()
     {
-        if (IsEmpty()) throw new InvalidOperationException("Stk is empty.");
-        return items[items.Count - 1]; // 末尾(上)を確認
+        T value;
+        if (!TryTop(out value))
+        {
+            throw new InvalidOperationException("Stk is empty.");
+        }
+        return value;
+    }
+
+    public bool TryTop(out T value)
+    {
+        if (IsEmpty())
+        {
+            value = default(T);
+            return false;
+        }
+
+        value = items[items.Count - 1]; // 末尾(上)を確認
+        return true;
     }
 
     public T Bottom()
     {
-        if (IsEmpty()) throw new InvalidOperationException("Stk is empty.");
-        return items[0]; // 先頭が底
+        T value;
+        if (!TryBottom(out value))
+        {
+            throw new InvalidOperationException("Stk is empty.");
+        }
+        return value;
+    }
+
+    public bool TryBottom(out T value)
+    {
+        if (IsEmpty())
+        {
+            value = default(T);
+            return false;
+        }
+
+        value = items[0]; // 先頭が底
+        return true;
     }
 
     // index 0 が底、Size()-1 が天面
