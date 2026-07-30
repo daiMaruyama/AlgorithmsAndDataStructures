@@ -11,7 +11,7 @@ public partial class Que<T>
     int tail;  // 次に追加する空き場所の物理index
     int count; // 現在入っている要素数
 
-    /// <param name="capacity">実際に格納できる要素数。</param>
+    /// <param name="capacity">格納できる要素数。</param>
     public Que(int capacity = 4)
     {
         if (capacity < 1)
